@@ -25,6 +25,12 @@ class MyPlugin extends Plugin {
         console.log(targetFile);
     }
 
+    async getGameInfo(gameName: string): Promise<any> {
+        const response = await fetch(`https://api.example.com/games/${gameName}`);
+        const gameInfo = await response.json();
+        return gameInfo;
+      }
+
     onunload() {
         console.log('Goodbye from your Obsidian plugin!');
     }
