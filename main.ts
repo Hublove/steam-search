@@ -81,9 +81,16 @@ async addYamlToFrontmatter(notePath: TFile, yamlData: Object): Promise<void> {
     
 
     async getGameInfo(input: string): Promise<any> {
-        const response = await fetch(`https://api.rawg.io/api/games/${input}?key=${KEY}`, {method: 'GET',});
-        const gameInfo = await response.json();
+        let response = await fetch(`https://api.rawg.io/api/games/${input}?key=${KEY}`, {method: 'GET',});
+        let gameInfo = await response.json();
+
+        if (gameInfo.redirect) {
+            response = await fetch(`https://api.rawg.io/api/games/${gameInfo.slug}?key=${KEY}`, {method: 'GET',});
+            gameInfo = await response.json();
+        }
+
         const gameName = gameInfo.name;
+
 
         // Use the Obsidian API to create a new note
         const targetFile = await this.app.vault.create(`/${gameName}.md`, "GAYEST NOTE");
