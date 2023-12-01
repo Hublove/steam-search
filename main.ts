@@ -1,4 +1,5 @@
 import { Menu, MenuItem, Notice, Plugin } from 'obsidian';
+require('dotenv').config();
 
 class MyPlugin extends Plugin {
 
@@ -13,7 +14,7 @@ class MyPlugin extends Plugin {
             hotkeys: [],
         });
         
-    }
+    } 
     async createNewNote() {
         const newNoteContent = 'This is your new note content.';
         const newNoteTitle = 'GAYEST NOTE';
@@ -26,7 +27,7 @@ class MyPlugin extends Plugin {
     }
 
     async getGameInfo(gameName: string): Promise<any> {
-        const response = await fetch(`https://api.example.com/games/${gameName}`);
+        const response = await fetch(`https://api.example.com/games/${gameName}?key=YOUR_API_KEY`);
         const gameInfo = await response.json();
         return gameInfo;
       }
