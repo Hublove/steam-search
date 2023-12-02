@@ -12,29 +12,12 @@ class MyPlugin extends Plugin {
         this.addCommand({
             id: 'create-new-note',
             name: 'Create New Gayer Note',
-            callback: () => this.createNewNote(),
+            callback: () => new MyModal(this.app).open(),
             hotkeys: [],
         });
         
     } 
-
     
-
-    async createNewNote() {
-        const newNoteContent = 'This is your new note content.';
-        const newNoteTitle = 'GAYEST NOTE';
-        console.log(`Created new note: ${newNoteTitle}`);
-
-        // Use the Obsidian API to create a new note
-        // const targetFile = await this.app.vault.create("/gay.md", "GAYEST NOTE");
-
-        // console.log(this.getGameInfo("minecraft"));
-
-        let modal = new MyModal(this.app).open();
-    }
-
-
-
     onunload() {
         console.log('Goodbye from your Obsidian plugin!');
     }
@@ -46,21 +29,75 @@ class MyModal extends Modal {
     }
   
     onOpen() {
-      let { contentEl } = this;
-  
-      // Create an input field
-      let inputEl = contentEl.createEl('input');
-      inputEl.type = 'text';
-  
-      // Create a button to submit the input
-      let buttonEl = contentEl.createEl('button');
-      buttonEl.textContent = 'Submit';
-      buttonEl.onClickEvent(() => {
-        let userInput = inputEl.value;
-        let response = this.getGameInfo(userInput);
-        console.log(response);
-        this.close();
-      });
+        let { contentEl } = this;
+
+        
+        // Create a datalist
+        let dataList: HTMLDataListElement | null = contentEl.createEl('datalist');
+        dataList.id = 'gameSuggestions';
+        
+
+        // Create an input field
+        let inputEl = contentEl.createEl('input');
+        inputEl.type = 'text';
+        inputEl.placeholder = 'Enter game title or ID';
+        inputEl.style.width = '100%';
+        inputEl.setAttribute('list', 'gameSuggestions');
+
+        
+        // Add suggestions to the input
+        // inputEl.addEventListener('keydown', (event) => {
+        //     if (event.key === 'Enter') {
+        //         if (dataList) {
+        //             while (dataList.firstChild) {
+        //                 dataList.removeChild(dataList.firstChild);
+        //             }
+        //         }
+        //         gameSuggestions.forEach(title => {
+        //             const suggestion = contentEl.createEl('option');
+        //             suggestion.value = title;
+        //             if (dataList) {
+        //                 dataList.appendChild(suggestion);
+        //             }
+        //         });
+                
+        //         console.log("list");
+        //         console.log(inputEl.list);
+        //         console.log(inputEl);
+        //     }
+        // });
+
+        inputEl.addEventListener('input', () => {
+            setTimeout(() => {
+                this.searchGameNames(inputEl.value)
+                .then((gameSuggestions: string[]) => {
+                    for (let x = 0; x < gameSuggestions.length; x++) {
+                        const title = gameSuggestions[x];
+                        const suggestion = contentEl.createEl('option');
+                        suggestion.value = title;
+                        if (dataList) {
+                            dataList.appendChild(suggestion);
+                        }
+                    }
+                })
+                .catch((error) => {
+                    // Handle the error if the promise rejects
+                    console.error(error);
+                });
+            }, 500);
+        });
+
+
+
+        // Create a button to submit the input
+        let buttonEl = contentEl.createEl('button');
+        buttonEl.textContent = 'Submit';
+        buttonEl.onClickEvent(() => {
+            let userInput = inputEl.value;
+            let response = this.getGameInfo(userInput.toLowerCase().replace(/\s/g, '').replace(/[^\w\s]/gi, ''));
+            console.log(response);
+            this.close();
+        });
     }
 
 /**
@@ -77,38 +114,57 @@ async addYamlToFrontmatter(notePath: TFile, yamlData: Object): Promise<void> {
     
 }
 
-
+async searchGameNames(query: string): Promise<string[]> {
+    const apiUrl = `https://api.rawg.io/api/games?key=${KEY}&search=${query}`;
+  
+    try {
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+  
+      const gameNames = data.results.map((game: any) => game.name);
+      return gameNames;
+    } catch (error) {
+      console.error('Error searching for game:', error);
+      return [];
+    }
+  }
     
 
-    async getGameInfo(input: string): Promise<any> {
-        let response = await fetch(`https://api.rawg.io/api/games/${input}?key=${KEY}`, {method: 'GET',});
-        let gameInfo = await response.json();
+/**
+ * Retrieves game information from the RAWG API and creates a new note with the information.
+ * @param input - The game identifier.
+ * @returns The game information.
+ */
+async getGameInfo(input: string): Promise<any> {
+    // Fetch game information from the RAWG API
+    let response = await fetch(`https://api.rawg.io/api/games/${input}?key=${KEY}`, {method: 'GET',});
+    let gameInfo = await response.json();
 
-        if (gameInfo.redirect) {
-            response = await fetch(`https://api.rawg.io/api/games/${gameInfo.slug}?key=${KEY}`, {method: 'GET',});
-            gameInfo = await response.json();
-        }
-
-        const gameName = gameInfo.name;
-
-
-        // Use the Obsidian API to create a new note
-        const targetFile = await this.app.vault.create(`/${gameName}.md`, "GAYEST NOTE");
-
-        const yamlData = {
-            id: gameInfo.id,
-            title: gameName,
-            tags: gameInfo.tags.map((tag: any) => tag.name).join(', '),
-            image: gameInfo.background_image,
-            metacritic: gameInfo.metacritic,
-            playtime: gameInfo.playtime,
-            released: gameInfo.released
-        }
-
-        this.addYamlToFrontmatter(targetFile, yamlData);
-
-        return gameInfo;
+    // If the game information has a redirect, fetch the information for the redirected game
+    if (gameInfo.redirect) {
+        response = await fetch(`https://api.rawg.io/api/games/${gameInfo.slug}?key=${KEY}`, {method: 'GET',});
+        gameInfo = await response.json();
     }
+
+    const gameName = gameInfo.name;
+
+    // Use the Obsidian API to create a new note with the game information as YAML frontmatter
+    const targetFile = await this.app.vault.create(`/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+
+    const yamlData = {
+        id: gameInfo.id,
+        title: gameName,
+        tags: gameInfo.tags.map((tag: any) => tag.name).join(', '),
+        image: gameInfo.background_image,
+        metacritic: gameInfo.metacritic,
+        playtime: gameInfo.playtime,
+        released: gameInfo.released
+    }
+
+    this.addYamlToFrontmatter(targetFile, yamlData);
+
+    return gameInfo;
+}
   
     onClose() {
       let { contentEl } = this;

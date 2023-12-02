@@ -6,3 +6,19 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
+
+button {
+    margin-bottom: 4px;
+    
+  
+}
+
+input {
+    width: 100%;
+    margin-bottom: 12px;
+    margin-top: 4px;
+}
+
+.modal-content {
+    width: 90%;
+}
