@@ -1,4 +1,4 @@
-import { App, MarkdownView, Menu, MenuItem, Modal, Notice, Plugin, TFile } from 'obsidian';
+import { App, MarkdownView, Menu, MenuItem, Modal, Notice, Plugin, TFile, TFolder } from 'obsidian';
 const myModule = require('./constants.js');
 import { KEY } from './constants.js';
 import { DEFAULT_SETTINGS, SteamSearchPluginSettings, SteamSearchSettingsTab } from 'settings.js';
@@ -149,12 +149,29 @@ async getGameInfo(input: string, folder: string): Promise<any> {
 
     // Use the Obsidian API to create a new note with the game information as YAML frontmatter
     let targetFile: TFile;
+    let targetFfolder: TFolder;
     if (folder === "") {
-        targetFile = await this.app.vault.create(`/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+        try {
+            targetFile = await this.app.vault.create(`/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+        } catch (error) {
+            console.log(error);
+            new Notice("File already exists");
+        }
 
     } else {
-        targetFile = await this.app.vault.create(`/${folder}/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
-
+        console.log(folder);
+        try {
+            targetFfolder = await this.app.vault.createFolder(folder);
+        } catch (error) {
+            new Notice("Folder already exists");
+        }
+        try {
+            targetFile = await this.app.vault.create(`/${folder}/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+        } catch (error) {
+            console.log(error);
+            new Notice("File already exists");
+        }
+        
     }
 
     const yamlData = {
