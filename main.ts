@@ -1,22 +1,36 @@
 import { App, MarkdownView, Menu, MenuItem, Modal, Notice, Plugin, TFile } from 'obsidian';
 const myModule = require('./constants.js');
 import { KEY } from './constants.js';
+import { DEFAULT_SETTINGS, SteamSearchPluginSettings, SteamSearchSettingsTab } from 'settings.js';
 
-class MyPlugin extends Plugin {
+class SteamSearch extends Plugin {
+    settings: SteamSearchPluginSettings;
 
-    onload() {
+    async onload() {
         console.log('Hello from your Obsidian plugin!');
-        
+        this.loadSettings();
+        this.addSettingTab(new SteamSearchSettingsTab(this.app, this));
+
+
         
         // Add a command to create a new note
         this.addCommand({
             id: 'create-new-note',
             name: 'Create New Gayer Note',
-            callback: () => new MyModal(this.app).open(),
+            callback: () => new MyModal(this.app, this).open(),
             hotkeys: [],
         });
         
     } 
+
+    async loadSettings() {
+        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    }
+    
+    async saveSettings() {
+        await this.saveData(this.settings);
+        
+    }
     
     onunload() {
         console.log('Goodbye from your Obsidian plugin!');
@@ -24,12 +38,16 @@ class MyPlugin extends Plugin {
 }
 
 class MyModal extends Modal {
-    constructor(app: App) {
-      super(app);
+    plugin: SteamSearch;
+
+    constructor(app: App, plugin: Plugin) {
+        super(app);
+        this.plugin = plugin as SteamSearch;
     }
   
-    onOpen() {
+    async onOpen() {
         let { contentEl } = this;
+        await this.plugin.loadSettings();
 
         
         // Create a datalist
@@ -44,28 +62,7 @@ class MyModal extends Modal {
         inputEl.style.width = '100%';
         inputEl.setAttribute('list', 'gameSuggestions');
 
-        
-        // Add suggestions to the input
-        // inputEl.addEventListener('keydown', (event) => {
-        //     if (event.key === 'Enter') {
-        //         if (dataList) {
-        //             while (dataList.firstChild) {
-        //                 dataList.removeChild(dataList.firstChild);
-        //             }
-        //         }
-        //         gameSuggestions.forEach(title => {
-        //             const suggestion = contentEl.createEl('option');
-        //             suggestion.value = title;
-        //             if (dataList) {
-        //                 dataList.appendChild(suggestion);
-        //             }
-        //         });
-                
-        //         console.log("list");
-        //         console.log(inputEl.list);
-        //         console.log(inputEl);
-        //     }
-        // });
+
 
         inputEl.addEventListener('input', () => {
             setTimeout(() => {
@@ -94,7 +91,7 @@ class MyModal extends Modal {
         buttonEl.textContent = 'Submit';
         buttonEl.onClickEvent(() => {
             let userInput = inputEl.value;
-            let response = this.getGameInfo(userInput.toLowerCase().replace(/\s/g, '').replace(/[^\w\s]/gi, ''));
+            let response = this.getGameInfo(userInput.toLowerCase().replace(/\s/g, '').replace(/[^\w\s]/gi, ''), this.plugin.settings.folder);
             console.log(response);
             this.close();
         });
@@ -128,6 +125,8 @@ async searchGameNames(query: string): Promise<string[]> {
       return [];
     }
   }
+  
+
     
 
 /**
@@ -135,7 +134,7 @@ async searchGameNames(query: string): Promise<string[]> {
  * @param input - The game identifier.
  * @returns The game information.
  */
-async getGameInfo(input: string): Promise<any> {
+async getGameInfo(input: string, folder: string): Promise<any> {
     // Fetch game information from the RAWG API
     let response = await fetch(`https://api.rawg.io/api/games/${input}?key=${KEY}`, {method: 'GET',});
     let gameInfo = await response.json();
@@ -149,7 +148,14 @@ async getGameInfo(input: string): Promise<any> {
     const gameName = gameInfo.name;
 
     // Use the Obsidian API to create a new note with the game information as YAML frontmatter
-    const targetFile = await this.app.vault.create(`/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+    let targetFile: TFile;
+    if (folder === "") {
+        targetFile = await this.app.vault.create(`/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+
+    } else {
+        targetFile = await this.app.vault.create(`/${folder}/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+
+    }
 
     const yamlData = {
         id: gameInfo.id,
@@ -165,6 +171,7 @@ async getGameInfo(input: string): Promise<any> {
 
     return gameInfo;
 }
+
   
     onClose() {
       let { contentEl } = this;
@@ -172,4 +179,4 @@ async getGameInfo(input: string): Promise<any> {
     }
   }
 
-export default MyPlugin;
+export default SteamSearch;
