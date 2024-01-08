@@ -6,6 +6,11 @@ import { DEFAULT_SETTINGS, SteamSearchPluginSettings, SteamSearchSettingsTab } f
 class SteamSearch extends Plugin {
     settings: SteamSearchPluginSettings;
 
+    /**
+     * Asynchronously loads the plugin.
+     *
+     * @return {Promise<void>} Promise that resolves when the plugin is loaded.
+     */
     async onload() {
         console.log('Hello from your Obsidian plugin!');
         this.loadSettings();
@@ -23,10 +28,20 @@ class SteamSearch extends Plugin {
         
     } 
 
+    /**
+     * Loads the settings by combining the default settings with the data loaded from storage.
+     *
+     * @return {Promise<void>} A promise that resolves when the settings have been loaded.
+     */
     async loadSettings() {
         this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
     }
     
+    /**
+     * Saves the settings.
+     *
+     * @return {Promise<void>} - A promise that resolves when the settings are saved.
+     */
     async saveSettings() {
         await this.saveData(this.settings);
         
@@ -40,11 +55,22 @@ class SteamSearch extends Plugin {
 class MyModal extends Modal {
     plugin: SteamSearch;
 
+    /**
+     * Constructs a new instance of the constructor.
+     *
+     * @param {App} app - The app parameter.
+     * @param {Plugin} plugin - The plugin parameter.
+     */
     constructor(app: App, plugin: Plugin) {
         super(app);
         this.plugin = plugin as SteamSearch;
     }
   
+    /**
+     * Initializes the onOpen function.
+     *
+     * @return {Promise<void>} - A Promise that resolves when the function has finished executing.
+     */
     async onOpen() {
         let { contentEl } = this;
         await this.plugin.loadSettings();
@@ -64,23 +90,29 @@ class MyModal extends Modal {
 
 
 
+        // Add an event listener to the input element for the 'input' event
         inputEl.addEventListener('input', () => {
+            // Set a timeout of 500 milliseconds before executing the code inside
             setTimeout(() => {
+                // Call the searchGameNames function with the value of the input element
                 this.searchGameNames(inputEl.value)
-                .then((gameSuggestions: string[]) => {
-                    for (let x = 0; x < gameSuggestions.length; x++) {
-                        const title = gameSuggestions[x];
-                        const suggestion = contentEl.createEl('option');
-                        suggestion.value = title;
-                        if (dataList) {
-                            dataList.appendChild(suggestion);
+                    .then((gameSuggestions: string[]) => {
+                        // Iterate over the array of game suggestions
+                        for (let x = 0; x < gameSuggestions.length; x++) {
+                            const title = gameSuggestions[x];
+                            // Create an 'option' element for each suggestion
+                            const suggestion = contentEl.createEl('option');
+                            suggestion.value = title;
+                            if (dataList) {
+                                // Append the suggestion to the 'datalist' element
+                                dataList.appendChild(suggestion);
+                            }
                         }
-                    }
-                })
-                .catch((error) => {
-                    // Handle the error if the promise rejects
-                    console.error(error);
-                });
+                    })
+                    .catch((error) => {
+                        // Handle the error if the promise rejects
+                        console.error(error);
+                    });
             }, 500);
         });
 
@@ -91,7 +123,7 @@ class MyModal extends Modal {
         buttonEl.textContent = 'Submit';
         buttonEl.onClickEvent(() => {
             let userInput = inputEl.value;
-            let response = this.getGameInfo(userInput.toLowerCase().replace(/\s/g, '').replace(/[^\w\s]/gi, ''), this.plugin.settings.folder);
+            let response = this.getGameInfo(userInput.replace(/[^\w\s]|_/g, "").replace(/\s+/g, "-").toLowerCase(), this.plugin.settings.folder, this.plugin.settings.openNote);
             console.log(response);
             this.close();
         });
@@ -111,6 +143,12 @@ async addYamlToFrontmatter(notePath: TFile, yamlData: Object): Promise<void> {
     
 }
 
+/**
+ * Retrieves a list of game names based on the provided query.
+ *
+ * @param {string} query - The search query for game names.
+ * @return {Promise<string[]>} A promise that resolves to an array of game names.
+ */
 async searchGameNames(query: string): Promise<string[]> {
     const apiUrl = `https://api.rawg.io/api/games?key=${KEY}&search=${query}`;
   
@@ -134,17 +172,26 @@ async searchGameNames(query: string): Promise<string[]> {
  * @param input - The game identifier.
  * @returns The game information.
  */
-async getGameInfo(input: string, folder: string): Promise<any> {
+async getGameInfo(input: string, folder: string, openNote: boolean): Promise<any> {
+    // let gameInfo = {"name": "", "redirect": false};
+    let response;
+    let gameInfo;
     // Fetch game information from the RAWG API
-    let response = await fetch(`https://api.rawg.io/api/games/${input}?key=${KEY}`, {method: 'GET',});
-    let gameInfo = await response.json();
-
-    // If the game information has a redirect, fetch the information for the redirected game
-    if (gameInfo.redirect) {
-        response = await fetch(`https://api.rawg.io/api/games/${gameInfo.slug}?key=${KEY}`, {method: 'GET',});
+    try {
+        response = await fetch(`https://api.rawg.io/api/games/${input}?key=${KEY}`, {method: 'GET',});
         gameInfo = await response.json();
+        // If the game information has a redirect, fetch the information for the redirected game
+        if (gameInfo.redirect) {
+            response = await fetch(`https://api.rawg.io/api/games/${gameInfo.slug}?key=${KEY}`, {method: 'GET',});
+            gameInfo = await response.json();
+    }
+    } catch (error) {
+        console.error('Error fetching game information:', error);
+        return;
     }
 
+    
+    console.log(gameInfo);
     const gameName = gameInfo.name;
 
     // Use the Obsidian API to create a new note with the game information as YAML frontmatter
@@ -153,6 +200,11 @@ async getGameInfo(input: string, folder: string): Promise<any> {
     if (folder === "") {
         try {
             targetFile = await this.app.vault.create(`/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+            const yamlData = this.getYamlData(gameInfo);
+            this.addYamlToFrontmatter(targetFile, yamlData);   
+            if (openNote) {
+                this.app.workspace.getLeaf().openFile(targetFile);
+            } 
         } catch (error) {
             console.log(error);
             new Notice("File already exists");
@@ -163,10 +215,16 @@ async getGameInfo(input: string, folder: string): Promise<any> {
         try {
             targetFfolder = await this.app.vault.createFolder(folder);
         } catch (error) {
+            console.log(error);
             new Notice("Folder already exists");
         }
         try {
             targetFile = await this.app.vault.create(`/${folder}/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+            const yamlData = this.getYamlData(gameInfo);
+            this.addYamlToFrontmatter(targetFile, yamlData);  
+            if (openNote) {
+                this.app.workspace.getLeaf().openFile(targetFile);
+            } 
         } catch (error) {
             console.log(error);
             new Notice("File already exists");
@@ -174,21 +232,23 @@ async getGameInfo(input: string, folder: string): Promise<any> {
         
     }
 
-    const yamlData = {
-        id: gameInfo.id,
-        title: gameName,
-        tags: gameInfo.tags.map((tag: any) => tag.name).join(', '),
-        image: gameInfo.background_image,
-        metacritic: gameInfo.metacritic,
-        playtime: gameInfo.playtime,
-        released: gameInfo.released
-    }
-
-    this.addYamlToFrontmatter(targetFile, yamlData);
-
     return gameInfo;
 }
 
+    getYamlData(gameInfo: { id: any; name: any; tags: any[]; background_image: any; metacritic: any; playtime: any; released: any; }) {
+
+        const yamlData = {
+            id: gameInfo.id,
+            title: gameInfo.name,
+            tags: gameInfo.tags.map((tag: any) => tag.name).join(', '),
+            image: gameInfo.background_image,
+            metacritic: gameInfo.metacritic,
+            playtime: gameInfo.playtime,
+            released: gameInfo.released
+        }
+
+        return yamlData;
+    }
   
     onClose() {
       let { contentEl } = this;
