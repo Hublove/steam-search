@@ -24,3 +24,4 @@ To customize the settings, go to Settings > Community Plugins > SteamSearch.
 
 ## Example
 
+![Create New Game Note](https://i.imgur.com/ZkVoZ79.gif)
