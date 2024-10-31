@@ -199,7 +199,7 @@ async getGameInfo(input: string, folder: string, openNote: boolean): Promise<any
     let targetFfolder: TFolder;
     if (folder === "") {
         try {
-            targetFile = await this.app.vault.create(`/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+            targetFile = await this.app.vault.create(`/${gameName.replace(/[^\w\s]/gi, '')}.md`, "NEWEST NOTE");
             const yamlData = this.getYamlData(gameInfo);
             this.addYamlToFrontmatter(targetFile, yamlData);   
             if (openNote) {
@@ -219,7 +219,7 @@ async getGameInfo(input: string, folder: string, openNote: boolean): Promise<any
             new Notice("Folder already exists");
         }
         try {
-            targetFile = await this.app.vault.create(`/${folder}/${gameName.replace(/[^\w\s]/gi, '')}.md`, "GAYEST NOTE");
+            targetFile = await this.app.vault.create(`/${folder}/${gameName.replace(/[^\w\s]/gi, '')}.md`, "NEWEST NOTE");
             const yamlData = this.getYamlData(gameInfo);
             this.addYamlToFrontmatter(targetFile, yamlData);  
             if (openNote) {
